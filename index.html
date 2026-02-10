@@ -6,9 +6,7 @@
     <title>Gestión de Entregas - Docentes Brown</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@300;400;600&family=League+Spartan:wght@500;700;800&display=swap" rel="stylesheet">
 
     <script>
@@ -63,7 +61,7 @@
 
     <div id="global-loader" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center">
         <div class="loader mb-4"></div>
-        <p class="text-xs text-gray-400 font-bold uppercase tracking-widest">Cargando datos...</p>
+        <p class="text-xs text-gray-400 font-bold uppercase tracking-widest">Cargando sedes...</p>
     </div>
 
     <main id="main-app" class="w-full max-w-md bg-white min-h-screen shadow-2xl relative overflow-hidden hidden">
@@ -150,59 +148,59 @@
         // ==========================================
         // 🔗 CONEXIÓN CON GOOGLE SHEETS
         // ==========================================
+        
+        // 👇 ASEGÚRATE DE QUE TU LINK ESTÉ AQUÍ:
         const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR3umh1n0156ItF44fpX3nL-lN-w_noV95rHknHJHjgaRXVrTQp2hygw2D6ev-qaQ_S8wp_HhP8_YXT/pub?output=csv";
+        
         const WHATSAPP_ENVIOS = "5491153196358";
         
         let DATA_CONFIG = [];
 
-        // 1. INICIALIZAR APP (Cargar datos)
+        // 1. INICIALIZAR APP
         window.onload = async () => {
             try {
                 const response = await fetch(SHEET_URL);
                 const text = await response.text();
                 DATA_CONFIG = parseCSV(text);
                 
-                renderAccordions(); // Crear las tarjetas con los datos descargados
+                renderAccordions(); 
                 
-                // Ocultar pantalla de carga y mostrar app
                 document.getElementById('global-loader').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
                 document.getElementById('main-app').classList.add('fade-in');
 
             } catch (error) {
                 console.error("Error cargando Sheet:", error);
-                alert("Hubo un error cargando los horarios. Por favor revisa tu conexión.");
+                alert("Hubo un error cargando los datos.");
             }
         };
 
-        // 2. PARSEAR CSV (Convertir texto de Excel a Objetos JS)
+        // 2. PARSEAR CSV (Ahora lee 5 columnas: incluye Mapa)
         function parseCSV(csvText) {
-            // Dividir por líneas y saltar la primera (encabezados)
             const rows = csvText.split('\n').slice(1);
             
             return rows.map(row => {
-                // Dividir columnas por coma
                 const cols = row.split(',');
-                
-                // Validar que la fila tenga datos
                 if (cols.length < 4) return null;
 
-                // Limpiar comillas extras si Google las agrega y espacios
                 const titulo = cols[0]?.replace(/"/g, '').trim();
                 const subtitulo = cols[1]?.replace(/"/g, '').trim();
                 const whatsapp = cols[2]?.replace(/"/g, '').trim();
+                
+                // Horarios (Columna D)
                 const opcionesRaw = cols[3]?.replace(/"/g, '').trim();
-
-                // Separar los horarios por el guión "-"
                 const opciones = opcionesRaw ? opcionesRaw.split('-').map(op => op.trim()) : [];
 
-                return { titulo, subtitulo, whatsapp, opciones };
-            }).filter(item => item !== null && item.titulo !== ""); // Filtrar filas vacías
+                // Mapa (Columna E) - Nueva!
+                const mapa = cols[4]?.replace(/"/g, '').trim();
+
+                return { titulo, subtitulo, whatsapp, opciones, mapa };
+            }).filter(item => item !== null && item.titulo !== "");
         }
 
 
         // ==========================================
-        // 🚀 LÓGICA FUNCIONAL (UI)
+        // 🚀 LÓGICA FUNCIONAL
         // ==========================================
 
         function navTo(screenId) {
@@ -212,7 +210,6 @@
             window.scrollTo(0,0);
         }
 
-        // Lógica ENVÍOS
         function sendShipping(e) {
             e.preventDefault();
             const datos = {
@@ -227,13 +224,13 @@
             window.open(`https://wa.me/${WHATSAPP_ENVIOS}?text=${mensaje}`, '_blank');
         }
 
-        // Lógica RETIROS
+        // Generar Tarjetas con Mapa
         function renderAccordions() {
             const container = document.getElementById('accordion-container');
             container.innerHTML = ''; 
 
             if(DATA_CONFIG.length === 0) {
-                container.innerHTML = "<p class='text-center text-gray-400'>No hay horarios disponibles.</p>";
+                container.innerHTML = "<p class='text-center text-gray-400'>No hay datos disponibles.</p>";
                 return;
             }
 
@@ -241,15 +238,26 @@
                 const card = document.createElement('div');
                 card.className = "bg-white rounded-2xl shadow-card overflow-hidden border border-gray-100 transition-all duration-300";
                 
+                // Lógica para mostrar botón de mapa solo si existe link
+                const mapButtonHtml = loc.mapa && loc.mapa.length > 5 
+                    ? `<a href="${loc.mapa}" target="_blank" onclick="event.stopPropagation()" class="w-10 h-10 rounded-full bg-brand-cream text-brand-blue flex items-center justify-center mr-3 hover:bg-yellow-200 transition shadow-sm" title="Ver Ubicación">
+                        <i class="fa-solid fa-location-dot"></i>
+                       </a>`
+                    : '';
+
                 const header = document.createElement('div');
                 header.className = "p-5 flex justify-between items-center cursor-pointer active:bg-gray-50";
                 header.onclick = () => toggleAccordion(index);
+                
                 header.innerHTML = `
-                    <div>
-                        <h3 class="font-spartan font-bold text-xl text-brand-blue">${loc.titulo}</h3>
-                        <p class="text-gray-400 text-sm">${loc.subtitulo}</p>
+                    <div class="flex items-center flex-1">
+                        <div class="flex-1">
+                            <h3 class="font-spartan font-bold text-xl text-brand-blue">${loc.titulo}</h3>
+                            <p class="text-gray-400 text-sm">${loc.subtitulo}</p>
+                        </div>
+                        ${mapButtonHtml}
                     </div>
-                    <span id="icon-${index}" class="text-brand-blue text-2xl transition-transform duration-300 transform rotate-0">▼</span>
+                    <span id="icon-${index}" class="text-brand-blue text-2xl transition-transform duration-300 transform rotate-0 ml-2">▼</span>
                 `;
 
                 const body = document.createElement('div');
@@ -304,6 +312,7 @@
             btn.classList.add('bg-brand-blue', 'shadow-lg', 'active:scale-95');
         }
 
+        // Envío Retiro (Mensaje Actualizado)
         function sendPickup(index) {
             const loc = DATA_CONFIG[index];
             const radios = document.getElementsByName(`horario-${index}`);
@@ -311,7 +320,10 @@
             for(const radio of radios) {
                 if(radio.checked) selectedTime = radio.value;
             }
-            const mensaje = `Hola! Te escribo para coordinar la entrega en ${loc.titulo}.%0AHorario elegido: ${selectedTime}`;
+            
+            // 👇 AQUÍ ESTÁ EL CAMBIO DEL MENSAJE: Título + Subtítulo
+            const mensaje = `Hola! Te escribo para coordinar la entrega en *${loc.titulo}* (${loc.subtitulo}).%0AHorario elegido: ${selectedTime}`;
+            
             window.open(`https://wa.me/${loc.whatsapp}?text=${mensaje}`, '_blank');
         }
     </script>
